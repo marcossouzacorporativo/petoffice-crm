@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>PetOffice CRM</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#F0F4F8;--surface:#FFFFFF;--surface2:#F4F6F9;--surface3:#E8ECF0;
+  --border:#DDE3EA;--border2:#C4CDD8;
+  --text:#1A2332;--text-muted:#5A6878;--text-dim:#8A96A3;
+  --accent:#2563EB;--accent-dim:rgba(37,99,235,.10);
+  --success:#16A34A;--success-dim:rgba(22,163,74,.10);
+  --warn:#D97706;--warn-dim:rgba(217,119,6,.10);
+  --danger:#DC2626;--danger-dim:rgba(220,38,38,.10);
+  --purple:#7C3AED;--purple-dim:rgba(124,58,237,.10);
+  --radius:8px;--radius-sm:5px;--shadow:0 4px 16px rgba(0,0,0,.08);
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+/* LOADING */
+#loading-screen{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;gap:14px}
+.spinner{width:34px;height:34px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* LOGIN */
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 0%,rgba(31,111,235,.07) 0%,transparent 65%)}
+.login-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:40px 36px;width:360px;box-shadow:var(--shadow)}
+.login-logo{text-align:center;margin-bottom:28px}
+.login-logo h1{font-size:22px;font-weight:700;letter-spacing:-.5px;margin-bottom:4px}
+.login-logo h1 span{color:var(--accent)}
+.login-logo p{font-size:12px;color:var(--text-muted)}
+.login-err{background:var(--danger-dim);border:1px solid rgba(248,81,73,.25);color:var(--danger);border-radius:var(--radius-sm);padding:9px 12px;font-size:13px;margin-bottom:14px}
+
+/* FORMS */
+.fg{margin-bottom:13px}
+.flabel{font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px}
+.fc{width:100%;padding:8px 11px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;color:var(--text);background:var(--surface2);outline:none;transition:border-color .15s;font-family:inherit}
+.fc:focus{border-color:var(--accent)}
+.fc::placeholder{color:var(--text-dim)}
+textarea.fc{resize:vertical;min-height:70px}
+select.fc option{background:var(--surface2)}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--radius-sm);font-size:13px;font-weight:500;cursor:pointer;border:none;transition:all .15s;white-space:nowrap;font-family:inherit}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:#1a63d6}
+.btn-outline{background:transparent;color:var(--text);border:1px solid var(--border)}.btn-outline:hover{background:var(--surface2)}
+.btn-ghost{background:transparent;color:var(--text-muted);border:none;padding:5px 8px}.btn-ghost:hover{color:var(--text);background:var(--surface2)}
+.btn-success{background:var(--success-dim);color:#3FB950;border:1px solid rgba(46,160,67,.25)}.btn-success:hover{background:rgba(46,160,67,.2)}
+.btn-danger{background:var(--danger-dim);color:var(--danger);border:1px solid rgba(248,81,73,.2)}.btn-danger:hover{background:rgba(248,81,73,.2)}
+.btn-sm{padding:4px 9px;font-size:11px}
+.btn-full{width:100%;justify-content:center}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* LAYOUT */
+.app{min-height:100vh;display:flex;flex-direction:column}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:11px 22px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.topbar-logo{font-size:16px;font-weight:700;letter-spacing:-.3px;display:flex;align-items:center;gap:8px}
+.topbar-logo span{color:var(--accent)}
+.topbar-logo .sep{color:var(--border2);font-weight:300}
+.topbar-logo .sub{font-size:13px;font-weight:400;color:var(--text-muted)}
+.topbar-right{display:flex;align-items:center;gap:9px}
+.user-chip{font-size:11px;color:var(--text-muted);padding:4px 10px;border:1px solid var(--border);border-radius:99px;background:var(--surface2)}
+
+/* TABS */
+.tabs{display:flex;border-bottom:1px solid var(--border);padding:0 22px;background:var(--surface)}
+.tab{padding:10px 16px;font-size:13px;font-weight:500;color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+
+/* MAIN */
+.main{flex:1;padding:22px;max-width:1400px;margin:0 auto;width:100%}
+
+/* SUMMARY */
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:20px}
+.scard{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;cursor:pointer;transition:border-color .15s}
+.scard:hover{border-color:var(--border2)}
+.scard .sl{font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
+.scard .sv{font-size:22px;font-weight:700}
+.scard.sc-total .sv{color:var(--text)}
+.scard.sc-prospect .sv{color:var(--accent)}
+.scard.sc-neg .sv{color:var(--warn)}
+.scard.sc-ativo .sv{color:var(--success)}
+.scard.sc-rec .sv{color:var(--purple)}
+.scard.sc-pend .sv{color:var(--warn)}
+.scard.sc-venc .sv{color:var(--danger)}
+
+/* TOOLBAR */
+.toolbar{display:flex;gap:9px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.tsearch{flex:1;min-width:180px;position:relative}
+.tsearch input{width:100%;padding:8px 11px 8px 32px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;color:var(--text);background:var(--surface2);outline:none;transition:border-color .15s}
+.tsearch input:focus{border-color:var(--accent)}
+.tsearch .si{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--text-dim);pointer-events:none;font-size:13px}
+.pills{display:flex;gap:5px;flex-wrap:wrap}
+.pill{padding:5px 11px;border-radius:99px;border:1px solid var(--border);background:transparent;font-size:12px;font-weight:500;color:var(--text-muted);cursor:pointer;transition:all .15s;font-family:inherit}
+.pill:hover{border-color:var(--border2);color:var(--text)}
+.pill.on{color:#fff}
+.pill.on.pall{background:var(--accent);border-color:var(--accent)}
+.pill.on.ppr{background:var(--accent);border-color:var(--accent)}
+.pill.on.pneg{background:var(--warn);border-color:var(--warn)}
+.pill.on.pat{background:var(--success);border-color:var(--success)}
+.pill.on.pperd{background:var(--text-dim);border-color:var(--text-dim)}
+
+/* CARDS GRID */
+.cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:11px}
+.ccard{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;display:flex;flex-direction:column;gap:10px;cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.ccard:hover{border-color:var(--accent);box-shadow:0 4px 14px rgba(37,99,235,.10)}
+.ccard.st-prospect{border-left:3px solid var(--accent)}
+.ccard.st-negociacao{border-left:3px solid var(--warn)}
+.ccard.st-ativo{border-left:3px solid var(--success)}
+.ccard.st-ativo.bonus-mes{border-left:3px solid var(--purple)}
+.ccard.st-perdido{border-left:3px solid var(--text-dim);opacity:.55}
+.ctop{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.cname{font-size:15px;font-weight:600;line-height:1.3}
+.cbiz{font-size:12px;color:var(--text-muted);margin-top:1px}
+.sbadge{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;padding:3px 8px;border-radius:99px;white-space:nowrap;flex-shrink:0}
+.sb-prospect{background:#EFF6FF;color:#1D4ED8;border:1px solid #BFDBFE}
+.sb-negociacao{background:#FFFBEB;color:#B45309;border:1px solid #FDE68A}
+.sb-ativo{background:#F0FDF4;color:#15803D;border:1px solid #BBF7D0}
+.sb-perdido{background:#F9FAFB;color:var(--text-muted);border:1px solid var(--border)}
+.cinfo{display:flex;flex-direction:column;gap:4px}
+.cirow{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted)}
+.cirow .ic{width:15px;text-align:center;font-size:12px}
+.cobs{font-size:12px;color:var(--text-dim);background:var(--surface2);border-radius:var(--radius-sm);padding:7px 9px;line-height:1.5}
+
+/* FINANCEIRO BADGE NO CARD */
+.fin-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:4px 9px;border-radius:var(--radius-sm)}
+.fb-pago{background:#F0FDF4;color:#15803D;border:1px solid #BBF7D0}
+.fb-bonus{background:#FDF4FF;color:#7C3AED;border:1px solid #E9D5FF}
+.fb-pendente{background:#FFFBEB;color:#B45309;border:1px solid #FDE68A}
+.fb-vencido{background:#FEF2F2;color:var(--danger);border:1px solid #FECACA}
+.fb-na{background:var(--surface2);color:var(--text-dim);border:1px solid var(--border)}
+
+.cfooter{display:flex;align-items:center;justify-content:space-between;padding-top:8px;border-top:1px solid var(--border)}
+.cdate{font-size:11px;color:var(--text-dim)}
+.cactions{display:flex;gap:4px}
+
+/* EMPTY */
+.empty{text-align:center;padding:56px 20px;color:var(--text-muted)}
+.empty-icon{font-size:40px;opacity:.35;margin-bottom:12px}
+.empty p{font-size:13px;margin-bottom:16px}
+
+/* MODAL */
+.moverlay{position:fixed;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;z-index:1000;opacity:0;pointer-events:none;transition:opacity .18s}
+.moverlay.open{opacity:1;pointer-events:all}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;width:520px;max-width:96vw;max-height:92vh;overflow-y:auto;box-shadow:var(--shadow);transform:translateY(8px);transition:transform .18s}
+.moverlay.open .modal{transform:translateY(0)}
+.mtitle{font-size:16px;font-weight:700;margin-bottom:20px;display:flex;align-items:center;gap:8px}
+.mfooter{display:flex;gap:8px;justify-content:flex-end;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
+.alert-err{background:var(--danger-dim);border:1px solid rgba(248,81,73,.25);color:var(--danger);border-radius:var(--radius-sm);padding:8px 12px;font-size:12px;margin-bottom:13px}
+
+/* HISTÓRICO */
+.hlist{display:flex;flex-direction:column;gap:7px;max-height:240px;overflow-y:auto;margin-bottom:12px}
+.hitem{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px}
+.hmeta{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
+.htipo{font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;background:#EFF6FF;color:#1D4ED8}
+.hdata{font-size:11px;color:var(--text-dim)}
+.htexto{font-size:13px;color:var(--text);line-height:1.5}
+.hadd{display:flex;gap:7px;align-items:flex-end}
+.hadd select{width:130px;flex-shrink:0}
+.hadd textarea{flex:1;min-height:50px;font-size:12px}
+
+/* FINANCEIRO PÁGINA */
+.fin-table-wrap{overflow-x:auto}
+.fin-table{width:100%;border-collapse:collapse;font-size:13px}
+.fin-table th{text-align:left;padding:9px 12px;font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border)}
+.fin-table td{padding:11px 12px;border-bottom:1px solid rgba(48,54,61,.6);vertical-align:middle}
+.fin-table tr:hover td{background:rgba(37,99,235,.03)}
+.venc-tag{font-size:11px;color:var(--text-dim)}
+
+/* ABAS MODAL DETALHE */
+.det-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:16px}
+.det-tab{padding:8px 14px;font-size:12px;font-weight:500;color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s}
+.det-tab:hover{color:var(--text)}
+.det-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.det-panel{display:none}
+.det-panel.active{display:block}
+
+/* INFO EXTRA */
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.info-item{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px}
+.info-item .il{font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.info-item .iv{font-size:13px;color:var(--text);word-break:break-all}
+.info-item .iv a{color:var(--accent);text-decoration:none}
+.info-item .iv a:hover{text-decoration:underline}
+.info-item.full{grid-column:1/-1}
+.obs-box{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:11px 13px;font-size:13px;color:var(--text);line-height:1.6;white-space:pre-wrap;word-break:break-word}
+
+/* TOAST */
+.toast{position:fixed;bottom:20px;right:20px;background:var(--surface);border:1px solid var(--border);padding:10px 15px;border-radius:var(--radius);font-size:13px;font-weight:500;box-shadow:var(--shadow);z-index:9999;transform:translateY(60px);opacity:0;transition:all .22s}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.success{background:var(--success-dim);border-color:rgba(46,160,67,.3);color:#3FB950}
+.toast.error{background:var(--danger-dim);border-color:rgba(248,81,73,.3);color:var(--danger)}
+
+.hidden{display:none!important}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="loading-screen">
+  <div style="font-size:36px">🐾</div>
+  <div class="spinner"></div>
+  <p style="color:var(--text-muted);font-size:13px">Carregando…</p>
+</div>
+
+<!-- LOGIN -->
+<div class="login-wrap hidden" id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">
+      <div style="font-size:36px;margin-bottom:8px">🐾</div>
+      <h1>PetOffice <span>CRM</span></h1>
+      <p>Gestão de clientes e financeiro</p>
+    </div>
+    <div id="login-err" class="login-err hidden"></div>
+    <div class="fg">
+      <label class="flabel">E-mail</label>
+      <input type="email" class="fc" id="lemail" placeholder="seu@email.com"/>
+    </div>
+    <div class="fg">
+      <label class="flabel">Senha</label>
+      <input type="password" class="fc" id="lsenha" onkeydown="if(event.key==='Enter')doLogin()"/>
+    </div>
+    <button class="btn btn-primary btn-full" id="lbtn" onclick="doLogin()">Entrar</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app hidden" id="app-screen">
+  <header class="topbar">
+    <div class="topbar-logo">🐾 PetOffice <span class="sep">|</span> <span class="sub">CRM</span></div>
+    <div class="topbar-right">
+      <div class="user-chip" id="uemail">…</div>
+      <button class="btn btn-outline btn-sm" onclick="doLogout()">Sair</button>
+      <button class="btn btn-primary btn-sm" onclick="openNewLead()">+ Novo Lead</button>
+    </div>
+  </header>
+  <nav class="tabs">
+    <div class="tab active" id="tab-leads" onclick="showTab('leads')">Leads & Clientes</div>
+    <div class="tab" id="tab-fin" onclick="showTab('fin')">Financeiro</div>
+  </nav>
+  <main class="main" id="main"></main>
+</div>
+
+<!-- MODAL LEAD -->
+<div class="moverlay" id="m-lead">
+  <div class="modal">
+    <div class="mtitle" id="m-lead-title">👤 Novo Lead</div>
+    <div id="m-lead-err" class="hidden"></div>
+    <input type="hidden" id="f-id"/>
+    <div class="frow">
+      <div class="fg"><label class="flabel">Nome do responsável *</label><input type="text" class="fc" id="f-nome" placeholder="Ex: João Silva"/></div>
+      <div class="fg"><label class="flabel">Nome do pet shop *</label><input type="text" class="fc" id="f-biz" placeholder="Ex: Pet Shop Fiel"/></div>
+    </div>
+    <div class="frow">
+      <div class="fg"><label class="flabel">Telefone / WhatsApp</label><input type="tel" class="fc" id="f-tel" placeholder="(11) 99999-9999"/></div>
+      <div class="fg"><label class="flabel">Cidade</label><input type="text" class="fc" id="f-cidade" placeholder="São Paulo – SP"/></div>
+    </div>
+    <div class="frow">
+      <div class="fg">
+        <label class="flabel">Status</label>
+        <select class="fc" id="f-status" onchange="toggleFinFields()">
+          <option value="prospect">🔵 Prospect</option>
+          <option value="negociacao">🟡 Em negociação</option>
+          <option value="ativo">🟢 Cliente ativo</option>
+          <option value="perdido">⚫ Perdido</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label class="flabel">Como chegou?</label>
+        <select class="fc" id="f-origem">
+          <option value="">Selecione…</option>
+          <option value="indicacao">🤝 Indicação</option>
+          <option value="instagram">📸 Instagram</option>
+          <option value="google">🔍 Google</option>
+          <option value="whatsapp">💬 WhatsApp</option>
+          <option value="abordagem">📞 Abordagem ativa</option>
+          <option value="outro">📌 Outro</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- campos financeiros — só aparecem se status = ativo -->
+    <div id="fin-fields" class="hidden">
+      <div style="border-top:1px solid var(--border);margin:14px 0 14px"></div>
+      <p style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">💰 Financeiro</p>
+      <div class="frow">
+        <div class="fg"><label class="flabel">Mensalidade (R$)</label><input type="number" step="0.01" min="0" class="fc" id="f-valor" placeholder="150,00"/></div>
+        <div class="fg"><label class="flabel">Data de ativação</label><input type="date" class="fc" id="f-ativacao"/></div>
+      </div>
+      <div class="fg">
+        <label class="flabel">Dia de vencimento (1–28)</label>
+        <input type="number" min="1" max="28" class="fc" id="f-vencdia" placeholder="Ex: 10"/>
+      </div>
+    </div>
+
+    <div style="border-top:1px solid var(--border);margin:14px 0 14px"></div>
+    <p style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">🌐 Informações adicionais</p>
+    <div class="frow">
+      <div class="fg"><label class="flabel">Site</label><input type="url" class="fc" id="f-site" placeholder="https://petshopexemplo.com.br"/></div>
+      <div class="fg"><label class="flabel">Instagram</label><input type="text" class="fc" id="f-insta" placeholder="@petshopexemplo"/></div>
+    </div>
+    <div class="frow">
+      <div class="fg"><label class="flabel">E-mail do pet shop</label><input type="email" class="fc" id="f-email" placeholder="contato@petshop.com"/></div>
+      <div class="fg"><label class="flabel">Segmento</label>
+        <select class="fc" id="f-segmento">
+          <option value="">Selecione…</option>
+          <option value="petshop">🐾 Pet Shop</option>
+          <option value="clinica">🏥 Clínica Veterinária</option>
+          <option value="banhotosa">✂️ Banho & Tosa</option>
+          <option value="hotel">🏨 Hotel para Pets</option>
+          <option value="misto">🔀 Misto</option>
+        </select>
+      </div>
+    </div>
+    <div class="fg"><label class="flabel">Endereço</label><input type="text" class="fc" id="f-end" placeholder="Rua, número, bairro — Cidade/UF"/></div>
+    <div class="fg"><label class="flabel">Observações gerais</label><textarea class="fc" id="f-obs" placeholder="Interesses, objeções, próximos passos, tamanho do negócio…"></textarea></div>
+    <div class="mfooter">
+      <button class="btn btn-outline" onclick="closeModal('m-lead')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveLead()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DETALHE -->
+<div class="moverlay" id="m-det">
+  <div class="modal" style="width:600px">
+    <div class="mtitle" id="m-det-title">📋 Detalhes</div>
+    <input type="hidden" id="d-id"/>
+
+    <!-- cabeçalho resumido -->
+    <div id="d-header" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:11px 14px;margin-bottom:14px;font-size:13px;line-height:1.8"></div>
+
+    <!-- abas -->
+    <div class="det-tabs">
+      <div class="det-tab active" id="dtab-info" onclick="switchDetTab('info')">📌 Informações</div>
+      <div class="det-tab" id="dtab-hist" onclick="switchDetTab('hist')">📞 Histórico de contatos</div>
+    </div>
+
+    <!-- painel: informações -->
+    <div class="det-panel active" id="dpanel-info">
+      <div class="info-grid" id="d-info-grid"></div>
+      <div id="d-obs-wrap" class="hidden">
+        <p style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px">Observações</p>
+        <div class="obs-box" id="d-obs"></div>
+      </div>
+    </div>
+
+    <!-- painel: histórico -->
+    <div class="det-panel" id="dpanel-hist">
+      <div class="hlist" id="hlist"><div style="text-align:center;padding:18px;color:var(--text-dim);font-size:13px">Nenhum contato registrado.</div></div>
+      <p style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Registrar contato</p>
+      <div class="hadd">
+        <select class="fc" id="h-tipo">
+          <option value="ligacao">📞 Ligação</option>
+          <option value="whatsapp">💬 WhatsApp</option>
+          <option value="email">📧 E-mail</option>
+          <option value="visita">🏪 Visita</option>
+          <option value="demo">🖥️ Demo</option>
+          <option value="outro">📌 Outro</option>
+        </select>
+        <textarea class="fc" id="h-texto" placeholder="O que foi discutido? Resultado, próximo passo…"></textarea>
+      </div>
+      <button class="btn btn-primary btn-sm" style="margin-top:7px" onclick="addHistorico()">+ Registrar</button>
+    </div>
+
+    <div class="mfooter">
+      <button class="btn btn-outline" onclick="closeModal('m-det')">Fechar</button>
+      <button class="btn btn-outline" onclick="editFromDet()">✏️ Editar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL REGISTRAR PAGAMENTO -->
+<div class="moverlay" id="m-pgto">
+  <div class="modal" style="width:420px">
+    <div class="mtitle">💰 Registrar Pagamento</div>
+    <div id="m-pgto-err" class="hidden"></div>
+    <input type="hidden" id="p-lead-id"/>
+    <div id="p-resumo" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:11px 13px;font-size:13px;margin-bottom:14px;line-height:1.8"></div>
+    <div class="frow">
+      <div class="fg"><label class="flabel">Valor pago (R$)</label><input type="number" step="0.01" min="0" class="fc" id="p-valor" placeholder="0,00"/></div>
+      <div class="fg"><label class="flabel">Data do pagamento</label><input type="date" class="fc" id="p-data"/></div>
+    </div>
+    <div class="fg">
+      <label class="flabel">Referência (mês/ano)</label>
+      <input type="month" class="fc" id="p-ref"/>
+    </div>
+    <div class="fg"><label class="flabel">Observação</label><input type="text" class="fc" id="p-obs" placeholder="Ex: PIX recebido às 14h"/></div>
+    <div class="mfooter">
+      <button class="btn btn-outline" onclick="closeModal('m-pgto')">Cancelar</button>
+      <button class="btn btn-success" onclick="savePgto()">✅ Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL REGISTRAR BÔNUS -->
+<div class="moverlay" id="m-bonus">
+  <div class="modal" style="width:420px">
+    <div class="mtitle">🎁 Conceder Bônus</div>
+    <div id="m-bonus-err" class="hidden"></div>
+    <input type="hidden" id="b-lead-id"/>
+    <div id="b-resumo" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:11px 13px;font-size:13px;margin-bottom:14px;line-height:1.8"></div>
+    <div class="fg">
+      <label class="flabel">Mês de referência do bônus</label>
+      <input type="month" class="fc" id="b-ref"/>
+    </div>
+    <div class="fg">
+      <label class="flabel">Motivo do bônus *</label>
+      <select class="fc" id="b-motivo">
+        <option value="">Selecione…</option>
+        <option value="indicacao">🤝 Indicação de novo cliente</option>
+        <option value="fidelidade">⭐ Fidelidade / aniversário</option>
+        <option value="cortesia">🎁 Cortesia comercial</option>
+        <option value="acordo">🤝 Acordo / negociação</option>
+        <option value="outro">📌 Outro</option>
+      </select>
+    </div>
+    <div class="fg">
+      <label class="flabel">Observação (opcional)</label>
+      <input type="text" class="fc" id="b-obs" placeholder="Ex: Indicou o Pet Shop Exemplo em Jun/2026"/>
+    </div>
+    <div style="background:#FDF4FF;border:1px solid #E9D5FF;border-radius:var(--radius-sm);padding:10px 13px;font-size:12px;color:#7C3AED;margin-bottom:4px">
+      🎁 O mês selecionado será marcado como <strong>Bônus</strong> — mensalidade não cobrada. O histórico financeiro registra o motivo.
+    </div>
+    <div class="mfooter">
+      <button class="btn btn-outline" onclick="closeModal('m-bonus')">Cancelar</button>
+      <button class="btn btn-primary" style="background:#7C3AED" onclick="saveBonus()">🎁 Conceder Bônus</button>
+    </div>
+  </div>
+</div>
+<div class="moverlay" id="m-del">
+  <div class="modal" style="width:370px">
+    <div class="mtitle">⚠️ Remover lead?</div>
+    <p style="font-size:13px;color:var(--text-muted);margin-bottom:8px">Esta ação não pode ser desfeita. Todo o histórico também será removido.</p>
+    <p style="font-size:14px;font-weight:600;margin-bottom:20px" id="del-nome"></p>
+    <input type="hidden" id="del-id"/>
+    <div class="mfooter">
+      <button class="btn btn-outline" onclick="closeModal('m-del')">Cancelar</button>
+      <button class="btn btn-danger" onclick="confirmDelete()">Remover</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════
+//  FIREBASE CONFIG — COLE AQUI
+// ═══════════════════════════════════════════
+const firebaseConfig = {
+  apiKey:            "AIzaSyCO24hWXpLSfKJk4u7rapgPZ-iVe74ZdLQ",
+  authDomain:        "petoffice-crm.firebaseapp.com",
+  projectId:         "petoffice-crm",
+  storageBucket:     "petoffice-crm.firebasestorage.app",
+  messagingSenderId: "295044624309",
+  appId:             "1:295044624309:web:72f3997c4aa715621df3fc"
+};
+// ═══════════════════════════════════════════
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db   = firebase.firestore();
+const FS   = firebase.firestore.FieldValue;
+
+let me = null, leads = [], pgtos = [];
+let filtro = 'todos', busca = '', activeTab = 'leads', busTimer;
+
+// ── AUTH ──
+auth.onAuthStateChanged(u => {
+  hide('loading-screen');
+  if (u) { me = u; show('app-screen'); id('uemail').textContent = u.email; startListeners(); }
+  else { show('login-screen'); }
+});
+
+async function doLogin() {
+  const e = id('lemail').value.trim(), s = id('lsenha').value;
+  const err = id('login-err'), btn = id('lbtn');
+  hide(err); btn.disabled = true; btn.textContent = 'Entrando…';
+  try { await auth.signInWithEmailAndPassword(e, s); }
+  catch(ex) {
+    const m = {'auth/user-not-found':'Usuário não encontrado.','auth/wrong-password':'Senha incorreta.','auth/invalid-email':'E-mail inválido.','auth/too-many-requests':'Muitas tentativas. Aguarde.','auth/invalid-credential':'E-mail ou senha incorretos.'};
+    err.textContent = m[ex.code] || 'Erro: ' + ex.message;
+    show(err); btn.disabled = false; btn.textContent = 'Entrar';
+  }
+}
+function doLogout() { if(confirm('Sair?')) auth.signOut().then(()=>{ hide('app-screen'); show('login-screen'); }); }
+
+// ── LISTENERS ──
+function startListeners() {
+  db.collection('leads').where('uid','==',me.uid).onSnapshot(snap => {
+    leads = snap.docs.map(d=>({id:d.id,...d.data()}))
+      .sort((a,b)=>(a.biz||a.nome||'').localeCompare(b.biz||b.nome||'','pt'));
+    render();
+  }, () => {
+    db.collection('leads').where('uid','==',me.uid).onSnapshot(snap=>{
+      leads = snap.docs.map(d=>({id:d.id,...d.data()}))
+        .sort((a,b)=>(a.biz||a.nome||'').localeCompare(b.biz||b.nome||'','pt'));
+      render();
+    });
+  });
+
+  db.collection('pagamentos').where('uid','==',me.uid).onSnapshot(snap => {
+    pgtos = snap.docs.map(d=>({id:d.id,...d.data()}));
+    render();
+  });
+}
+
+// ── TABS ──
+function showTab(t) {
+  activeTab = t;
+  ['leads','fin'].forEach(x => {
+    id('tab-'+x).classList.toggle('active', x===t);
+  });
+  render();
+}
+
+// ── RENDER PRINCIPAL ──
+function render() { activeTab==='leads' ? renderLeads() : renderFin(); }
+
+// ═══════════════════════════════
+//  ABA: LEADS
+// ═══════════════════════════════
+function renderLeads() {
+  const filtered = leads.filter(l => {
+    const ms = filtro==='todos' || l.status===filtro;
+    const q  = busca.toLowerCase();
+    const mb = !q || (l.nome||'').toLowerCase().includes(q) || (l.biz||'').toLowerCase().includes(q) || (l.cidade||'').toLowerCase().includes(q);
+    return ms && mb;
+  });
+
+  const tot  = leads.length;
+  const pros  = leads.filter(l=>l.status==='prospect').length;
+  const neg   = leads.filter(l=>l.status==='negociacao').length;
+  const atv   = leads.filter(l=>l.status==='ativo').length;
+
+  id('main').innerHTML = `
+    <div class="summary">
+      <div class="scard sc-total" onclick="setFiltro('todos')"><div class="sl">Total</div><div class="sv">${tot}</div></div>
+      <div class="scard sc-prospect" onclick="setFiltro('prospect')"><div class="sl">🔵 Prospects</div><div class="sv">${pros}</div></div>
+      <div class="scard sc-neg" onclick="setFiltro('negociacao')"><div class="sl">🟡 Negociação</div><div class="sv">${neg}</div></div>
+      <div class="scard sc-ativo" onclick="setFiltro('ativo')"><div class="sl">🟢 Ativos</div><div class="sv">${atv}</div></div>
+    </div>
+    <div class="toolbar">
+      <div class="tsearch"><span class="si">🔍</span><input type="text" placeholder="Buscar por nome, pet shop ou cidade…" value="${busca}" oninput="debounceBusca(this.value)"/></div>
+      <div class="pills">
+        <button class="pill pall ${filtro==='todos'?'on':''}" onclick="setFiltro('todos')">Todos</button>
+        <button class="pill ppr ${filtro==='prospect'?'on':''}" onclick="setFiltro('prospect')">Prospect</button>
+        <button class="pill pneg ${filtro==='negociacao'?'on':''}" onclick="setFiltro('negociacao')">Negociação</button>
+        <button class="pill pat ${filtro==='ativo'?'on':''}" onclick="setFiltro('ativo')">Ativo</button>
+        <button class="pill pperd ${filtro==='perdido'?'on':''}" onclick="setFiltro('perdido')">Perdido</button>
+      </div>
+    </div>
+    ${filtered.length===0
+      ? `<div class="empty"><div class="empty-icon">📋</div><p>${tot===0?'Nenhum lead cadastrado ainda.':'Nenhum resultado.'}</p>${tot===0?`<button class="btn btn-primary" onclick="openNewLead()">+ Adicionar primeiro lead</button>`:''}</div>`
+      : `<div class="cgrid">${filtered.map(renderCard).join('')}</div>`}`;
+}
+
+function renderCard(l) {
+  const SL = {prospect:'Prospect',negociacao:'Em negociação',ativo:'Cliente ativo',perdido:'Perdido'};
+  const SD = {prospect:'🔵',negociacao:'🟡',ativo:'🟢',perdido:'⚫'};
+  const OL = {indicacao:'🤝 Indicação',instagram:'📸 Instagram',google:'🔍 Google',whatsapp:'💬 WhatsApp',abordagem:'📞 Abordagem',outro:'📌 Outro'};
+  const dt = l.criadoEm?.toDate ? l.criadoEm.toDate().toLocaleDateString('pt-BR') : '—';
+
+  let finBadge = '';
+  if (l.status === 'ativo') {
+    const st = getFinStatus(l);
+    if      (st==='bonus')    finBadge = `<span class="fin-badge fb-bonus">🎁 Bônus</span>`;
+    else if (st==='vencido')  finBadge = `<span class="fin-badge fb-vencido">⚠️ Vencido</span>`;
+    else if (st==='pendente') finBadge = `<span class="fin-badge fb-pendente">⏳ Pendente</span>`;
+    else if (st==='pago')     finBadge = `<span class="fin-badge fb-pago">✅ Em dia</span>`;
+    else                      finBadge = `<span class="fin-badge fb-na">— Sem cobrança</span>`;
+  }
+  const isBonus = l.status==='ativo' && getFinStatus(l)==='bonus';
+
+  return `
+  <div class="ccard st-${l.status}${isBonus?' bonus-mes':''}" onclick="openDet('${l.id}')">
+    <div class="ctop">
+      <div><div class="cname">${esc(l.biz||l.nome)}</div><div class="cbiz">${l.biz?esc(l.nome):''}</div></div>
+      <span class="sbadge sb-${l.status}">${SD[l.status]} ${SL[l.status]}</span>
+    </div>
+    <div class="cinfo">
+      ${l.cidade?`<div class="cirow"><span class="ic">📍</span>${esc(l.cidade)}</div>`:''}
+      ${l.tel?`<div class="cirow"><span class="ic">📱</span>${esc(l.tel)}</div>`:''}
+      ${l.origem?`<div class="cirow"><span class="ic">↗</span>${OL[l.origem]||l.origem}</div>`:''}
+      ${l.valor?`<div class="cirow"><span class="ic">💰</span>R$ ${fmtN(l.valor)}/mês ${l.vencDia?`· vence dia ${l.vencDia}`:''}</div>`:''}
+    </div>
+    ${l.obs?`<div class="cobs">${esc(l.obs.substring(0,130))}${l.obs.length>130?'…':''}</div>`:''}
+    ${finBadge?`<div>${finBadge}</div>`:''}
+    <div class="cfooter">
+      <span class="cdate">Adicionado ${dt}</span>
+      <div class="cactions" onclick="event.stopPropagation()">
+        ${l.status==='ativo'?`<button class="btn btn-ghost btn-sm" onclick="openPgto('${l.id}')" title="Registrar pagamento">💰</button>`:''}
+        ${l.status==='ativo'?`<button class="btn btn-ghost btn-sm" onclick="openBonus('${l.id}')" title="Conceder bônus" style="color:var(--purple)">🎁</button>`:''}
+        <button class="btn btn-ghost btn-sm" onclick="openEdit('${l.id}')" title="Editar">✏️</button>
+        <button class="btn btn-ghost btn-sm" onclick="openDel('${l.id}')" title="Remover">🗑</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ═══════════════════════════════
+//  ABA: FINANCEIRO
+// ═══════════════════════════════
+function renderFin() {
+  const ativos = leads.filter(l=>l.status==='ativo');
+  const totalMRR = ativos.reduce((s,l)=>s+(parseFloat(l.valor)||0),0);
+  const recebidoMes = pgtosMes();
+  const pendentes = ativos.filter(l=>getFinStatus(l)==='pendente').length;
+  const vencidos  = ativos.filter(l=>getFinStatus(l)==='vencido').length;
+
+  id('main').innerHTML = `
+    <div class="summary">
+      <div class="scard sc-ativo"><div class="sl">🟢 Clientes ativos</div><div class="sv">${ativos.length}</div></div>
+      <div class="scard sc-rec"><div class="sl">💜 MRR (mensalidades)</div><div class="sv" style="font-size:16px">R$ ${fmtN(totalMRR)}</div></div>
+      <div class="scard sc-rec"><div class="sl">✅ Recebido este mês</div><div class="sv" style="font-size:16px">R$ ${fmtN(recebidoMes)}</div></div>
+      <div class="scard sc-pend"><div class="sl">⏳ Pendentes</div><div class="sv">${pendentes}</div></div>
+      <div class="scard sc-venc"><div class="sl">⚠️ Vencidos</div><div class="sv">${vencidos}</div></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+
+      <!-- SITUAÇÃO DOS CLIENTES -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px">
+        <div style="font-size:13px;font-weight:600;margin-bottom:14px">📋 Situação dos clientes ativos</div>
+        ${ativos.length===0
+          ? `<p style="font-size:13px;color:var(--text-muted)">Nenhum cliente ativo.</p>`
+          : `<div class="fin-table-wrap"><table class="fin-table">
+              <tr><th>Pet Shop</th><th>Mensalidade</th><th>Venc.</th><th>Situação</th><th></th></tr>
+              ${ativos.map(l=>{
+                const st = getFinStatus(l);
+                const badges = {pago:`<span class="fin-badge fb-pago">✅ Pago</span>`,bonus:`<span class="fin-badge fb-bonus">🎁 Bônus</span>`,pendente:`<span class="fin-badge fb-pendente">⏳ Pendente</span>`,vencido:`<span class="fin-badge fb-vencido">⚠️ Vencido</span>`,sem:`<span class="fin-badge fb-na">—</span>`};
+                const prox = proxVenc(l);
+                const waTel = (l.tel||'').replace(/\D/g,'');
+                const waLink = waTel ? `https://wa.me/55${waTel}?text=${encodeURIComponent(montarMsgFatura(l))}` : '';
+                return `<tr>
+                  <td><strong>${esc(l.biz||l.nome)}</strong><br><span style="font-size:11px;color:var(--text-muted)">${esc(l.nome)}</span></td>
+                  <td>R$ ${fmtN(l.valor||0)}</td>
+                  <td><span class="venc-tag">Dia ${l.vencDia||'—'}</span>${prox?`<br><span style="font-size:10px;color:var(--text-dim)">${prox}</span>`:''}</td>
+                  <td>${badges[st]||badges.sem}</td>
+                  <td style="display:flex;gap:5px;flex-wrap:wrap">
+                    <button class="btn btn-ghost btn-sm" onclick="openPgto('${l.id}')" title="Registrar pagamento">💰</button>
+                    <button class="btn btn-ghost btn-sm" onclick="openBonus('${l.id}')" title="Conceder bônus" style="color:var(--purple)">🎁</button>
+                    ${waLink?`<a href="${waLink}" target="_blank" class="btn btn-success btn-sm" onclick="event.stopPropagation()" title="Enviar cobrança via WhatsApp">💬 Fatura</a>`:''}
+                  </td>
+                </tr>`;
+              }).join('')}
+            </table></div>`}
+      </div>
+
+      <!-- HISTÓRICO DE PAGAMENTOS -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px">
+        <div style="font-size:13px;font-weight:600;margin-bottom:14px">💰 Pagamentos recebidos</div>
+        ${pgtos.length===0
+          ? `<p style="font-size:13px;color:var(--text-muted)">Nenhum pagamento registrado.</p>`
+          : `<div class="fin-table-wrap"><table class="fin-table">
+              <tr><th>Data</th><th>Pet Shop</th><th>Ref.</th><th>Valor</th><th></th></tr>
+              ${[...pgtos].sort((a,b)=>(b.criadoEm?.seconds||0)-(a.criadoEm?.seconds||0)).slice(0,20).map(p=>{
+                const l = leads.find(x=>x.id===p.leadId);
+                const dt = p.dataPgto || (p.criadoEm?.toDate ? p.criadoEm.toDate().toLocaleDateString('pt-BR') : '—');
+                const MOTIVOS = {indicacao:'🤝 Indicação',fidelidade:'⭐ Fidelidade',cortesia:'🎁 Cortesia',acordo:'🤝 Acordo',outro:'📌 Outro'};
+                return `<tr>
+                  <td>${dt}</td>
+                  <td>${esc(l?.biz||l?.nome||'—')}</td>
+                  <td style="font-size:11px;color:var(--text-muted)">${p.refLabel||p.ref||'—'}</td>
+                  <td><strong style="color:${p.bonus?'var(--purple)':'var(--success)'}">
+                    ${p.bonus ? '🎁 Bônus' : `R$ ${fmtN(p.valor||0)}`}
+                  </strong>${p.bonus&&p.motivo?`<br><span style="font-size:10px;color:var(--text-dim)">${MOTIVOS[p.motivo]||p.motivo}</span>`:''}</td>
+                  <td><button class="btn btn-danger btn-sm" onclick="deletarPgto('${p.id}')" title="Excluir pagamento">🗑</button></td>
+                </tr>`;
+              }).join('')}
+            </table></div>`}
+      </div>
+    </div>`;
+}
+
+// ── LÓGICA FINANCEIRA ──
+function getFinStatus(l) {
+  if (!l.valor || !l.vencDia) return 'sem';
+  const hoje = new Date();
+  const mesAtual = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}`;
+  const pgtoMes = pgtos.find(p => p.leadId===l.id && p.ref===mesAtual);
+  if (!pgtoMes) { return hoje.getDate() > l.vencDia ? 'vencido' : 'pendente'; }
+  if (pgtoMes.bonus) return 'bonus';
+  return 'pago';
+}
+
+function proxVenc(l) {
+  if (!l.vencDia) return '';
+  const hoje = new Date();
+  const mesAtual = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}`;
+  const pgtoMes = pgtos.find(p => p.leadId===l.id && p.ref===mesAtual);
+  if (pgtoMes) {
+    const d = new Date(hoje.getFullYear(), hoje.getMonth()+1, l.vencDia);
+    return pgtoMes.bonus ? `🎁 Bônus concedido · Próx: ${d.toLocaleDateString('pt-BR')}` : `Próx: ${d.toLocaleDateString('pt-BR')}`;
+  }
+  const d = new Date(hoje.getFullYear(), hoje.getMonth(), l.vencDia);
+  return `Vence: ${d.toLocaleDateString('pt-BR')}`;
+}
+
+function pgtosMes() {
+  const hoje = new Date();
+  const mes = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}`;
+  return pgtos.filter(p=>p.ref===mes).reduce((s,p)=>s+(parseFloat(p.valor)||0),0);
+}
+
+// ── VENCIMENTO (manual) ──
+function toggleFinFields() {
+  const s = id('f-status').value;
+  s === 'ativo' ? show('fin-fields') : hide('fin-fields');
+}
+
+// ── MODAL LEAD ──
+const EXTRA_FIELDS = ['f-site','f-insta','f-email','f-segmento','f-end'];
+
+function openNewLead() {
+  id('f-id').value=''; id('m-lead-title').textContent='👤 Novo Lead';
+  ['f-nome','f-biz','f-tel','f-cidade','f-obs','f-valor','f-ativacao',...EXTRA_FIELDS].forEach(x=>{ id(x).value=''; });
+  id('f-status').value='prospect'; id('f-origem').value=''; id('f-vencdia').value='';
+  hide('fin-fields'); hide('m-lead-err'); openModal('m-lead');
+}
+
+function openEdit(lid) {
+  const l = leads.find(x=>x.id===lid); if(!l) return;
+  id('f-id').value=lid; id('m-lead-title').textContent='✏️ Editar Lead';
+  id('f-nome').value=l.nome||''; id('f-biz').value=l.biz||'';
+  id('f-tel').value=l.tel||''; id('f-cidade').value=l.cidade||'';
+  id('f-status').value=l.status||'prospect'; id('f-origem').value=l.origem||'';
+  id('f-obs').value=l.obs||''; id('f-valor').value=l.valor||'';
+  id('f-ativacao').value=l.ativacao||'';
+  id('f-vencdia').value=l.vencDia||'';
+  // campos extras
+  id('f-site').value=l.site||'';
+  id('f-insta').value=l.insta||'';
+  id('f-email').value=l.email||'';
+  id('f-segmento').value=l.segmento||'';
+  id('f-end').value=l.end||'';
+  toggleFinFields(); hide('m-lead-err'); openModal('m-lead');
+}
+
+function editFromDet() { const lid=id('d-id').value; closeModal('m-det'); openEdit(lid); }
+
+async function saveLead() {
+  const lid    = id('f-id').value;
+  const nome   = id('f-nome').value.trim();
+  const biz    = id('f-biz').value.trim();
+  const tel    = id('f-tel').value.trim();
+  const cidade = id('f-cidade').value.trim();
+  const status = id('f-status').value;
+  const origem = id('f-origem').value;
+  const obs    = id('f-obs').value.trim();
+  const valor    = parseFloat(id('f-valor').value)||0;
+  const ativ     = id('f-ativacao').value;
+  const vencDia  = parseInt(id('f-vencdia').value)||null;
+  const site     = id('f-site').value.trim();
+  const insta    = id('f-insta').value.trim();
+  const email    = id('f-email').value.trim();
+  const segmento = id('f-segmento').value;
+  const end      = id('f-end').value.trim();
+  const errEl    = id('m-lead-err');
+
+  if (!nome) { errEl.className='alert-err'; errEl.textContent='⚠️ Informe o nome do responsável.'; show(errEl); return; }
+  if (!biz)  { errEl.className='alert-err'; errEl.textContent='⚠️ Informe o nome do pet shop.'; show(errEl); return; }
+
+  const data = { nome, biz, tel, cidade, status, origem, obs, site, insta, email, segmento, end, uid: me.uid };
+  if (status==='ativo') { data.valor=valor; data.ativacao=ativ; data.vencDia=vencDia||null; }
+
+  try {
+    if (lid) {
+      await db.collection('leads').doc(lid).update({...data, updatedAt: FS.serverTimestamp()});
+      toast('✅ Lead atualizado!','success');
+    } else {
+      data.criadoEm = FS.serverTimestamp();
+      await db.collection('leads').add(data);
+      toast('✅ Lead adicionado!','success');
+    }
+    closeModal('m-lead');
+  } catch(e) { errEl.className='alert-err'; errEl.textContent='Erro: '+e.message; show(errEl); }
+}
+
+// ── MODAL DETALHE ──
+function switchDetTab(tab) {
+  ['info','hist'].forEach(t => {
+    id('dtab-'+t).classList.toggle('active', t===tab);
+    id('dpanel-'+t).classList.toggle('active', t===tab);
+  });
+}
+
+function openDet(lid) {
+  const l = leads.find(x=>x.id===lid); if(!l) return;
+  id('d-id').value=lid;
+  id('m-det-title').textContent=`📋 ${esc(l.biz||l.nome)}`;
+
+  const SL={prospect:'🔵 Prospect',negociacao:'🟡 Em negociação',ativo:'🟢 Cliente ativo',perdido:'⚫ Perdido'};
+  const OL={indicacao:'🤝 Indicação',instagram:'📸 Instagram',google:'🔍 Google',whatsapp:'💬 WhatsApp',abordagem:'📞 Abordagem',outro:'📌 Outro'};
+  const SEG={petshop:'🐾 Pet Shop',clinica:'🏥 Clínica Veterinária',banhotosa:'✂️ Banho & Tosa',hotel:'🏨 Hotel para Pets',misto:'🔀 Misto'};
+  const st = getFinStatus(l);
+  const stLabel = {pago:'✅ Em dia',pendente:'⏳ Pendente',vencido:'⚠️ Vencido',sem:'—'}[st];
+
+  // cabeçalho
+  id('d-header').innerHTML=`
+    <strong style="font-size:15px">${esc(l.biz||l.nome)}</strong>
+    <span class="sbadge sb-${l.status}" style="margin-left:8px">${SL[l.status]}</span><br>
+    <span style="color:var(--text-muted)">👤 ${esc(l.nome)}</span>
+    ${l.tel?`&nbsp;·&nbsp; 📱 ${esc(l.tel)}`:''}
+    ${l.cidade?`&nbsp;·&nbsp; 📍 ${esc(l.cidade)}`:''}
+    ${l.status==='ativo'&&l.valor?`<br>💰 R$ ${fmtN(l.valor)}/mês · Vence dia ${l.vencDia||'—'} · <strong>${stLabel}</strong>`:''}`;
+
+  // grade de informações extras
+  const items = [];
+  if (l.site)     items.push({label:'🌐 Site',       value:`<a href="${esc(l.site)}" target="_blank">${esc(l.site)}</a>`});
+  if (l.insta)    items.push({label:'📸 Instagram',  value:`<a href="https://instagram.com/${l.insta.replace('@','')}" target="_blank">${esc(l.insta)}</a>`});
+  if (l.email)    items.push({label:'📧 E-mail',     value:`<a href="mailto:${esc(l.email)}">${esc(l.email)}</a>`});
+  if (l.segmento) items.push({label:'🏷️ Segmento',  value:SEG[l.segmento]||l.segmento});
+  if (l.origem)   items.push({label:'↗ Origem',      value:OL[l.origem]||l.origem});
+  if (l.ativacao) items.push({label:'📅 Ativação',   value:fmtDateBR(l.ativacao)});
+  const endItem = l.end ? `<div class="info-item full"><div class="il">📍 Endereço</div><div class="iv">${esc(l.end)}</div></div>` : '';
+
+  id('d-info-grid').innerHTML = items.map(i=>`
+    <div class="info-item"><div class="il">${i.label}</div><div class="iv">${i.value}</div></div>`).join('') + endItem
+    || `<p style="font-size:13px;color:var(--text-dim);grid-column:1/-1">Nenhuma informação adicional cadastrada.</p>`;
+
+  // observações
+  if (l.obs) { show('d-obs-wrap'); id('d-obs').innerHTML = esc(l.obs); }
+  else { hide('d-obs-wrap'); }
+
+  // reset para aba info
+  switchDetTab('info');
+  id('h-texto').value='';
+  loadHistorico(lid);
+  openModal('m-det');
+}
+
+function loadHistorico(lid) {
+  const el = id('hlist');
+  el.innerHTML='<div style="text-align:center;padding:14px;color:var(--text-dim);font-size:13px">Carregando…</div>';
+  db.collection('leads').doc(lid).collection('historico').orderBy('criadoEm','desc').get()
+    .then(snap=>{
+      if(snap.empty){el.innerHTML='<div style="text-align:center;padding:14px;color:var(--text-dim);font-size:13px">Nenhum contato registrado.</div>';return;}
+      const TL={ligacao:'📞 Ligação',whatsapp:'💬 WhatsApp',email:'📧 E-mail',visita:'🏪 Visita',demo:'🖥️ Demo',outro:'📌 Outro'};
+      el.innerHTML=snap.docs.map(d=>{
+        const h=d.data();
+        const dt=h.criadoEm?.toDate?h.criadoEm.toDate().toLocaleString('pt-BR'):'—';
+        return `<div class="hitem"><div class="hmeta"><span class="htipo">${TL[h.tipo]||h.tipo}</span><span class="hdata">${dt}</span></div><div class="htexto">${esc(h.texto)}</div></div>`;
+      }).join('');
+    }).catch(()=>{el.innerHTML='<div style="text-align:center;padding:14px;color:var(--danger);font-size:13px">Erro ao carregar.</div>';});
+}
+
+async function addHistorico() {
+  const lid=id('d-id').value, tipo=id('h-tipo').value, texto=id('h-texto').value.trim();
+  if(!texto){toast('⚠️ Descreva o contato.','error');return;}
+  try {
+    await db.collection('leads').doc(lid).collection('historico').add({tipo,texto,criadoEm:FS.serverTimestamp(),autor:me.email});
+    id('h-texto').value=''; loadHistorico(lid); toast('📋 Contato registrado!','success');
+  } catch(e){toast('Erro: '+e.message,'error');}
+}
+
+// ── MODAL PAGAMENTO ──
+function openPgto(lid) {
+  const l = leads.find(x=>x.id===lid); if(!l) return;
+  id('p-lead-id').value=lid;
+  const hoje=new Date();
+  id('p-data').value=hoje.toISOString().split('T')[0];
+  id('p-ref').value=`${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}`;
+  id('p-valor').value=l.valor||'';
+  id('p-obs').value='';
+  const st=getFinStatus(l);
+  const stLabel={pago:'✅ Em dia',pendente:'⏳ Pendente',vencido:'⚠️ Vencido',sem:'—'}[st];
+  id('p-resumo').innerHTML=`<strong>${esc(l.biz||l.nome)}</strong><br>
+    Mensalidade: <strong>R$ ${fmtN(l.valor||0)}</strong> · Vence dia <strong>${l.vencDia||'—'}</strong><br>
+    Situação atual: <strong>${stLabel}</strong>`;
+  hide('m-pgto-err'); openModal('m-pgto');
+}
+
+async function savePgto() {
+  const lid=id('p-lead-id').value, valor=parseFloat(id('p-valor').value), dt=id('p-data').value, ref=id('p-ref').value, obs=id('p-obs').value.trim();
+  const errEl=id('m-pgto-err');
+  if(!valor||valor<=0){errEl.className='alert-err';errEl.textContent='⚠️ Informe o valor.';show(errEl);return;}
+  if(!dt){errEl.className='alert-err';errEl.textContent='⚠️ Informe a data.';show(errEl);return;}
+  if(!ref){errEl.className='alert-err';errEl.textContent='⚠️ Informe o mês de referência.';show(errEl);return;}
+  const [y,m]=ref.split('-');
+  const meses=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const refLabel=`${meses[parseInt(m)-1]}/${y}`;
+  try {
+    await db.collection('pagamentos').add({leadId:lid,valor,dataPgto:dt,ref,refLabel,obs,uid:me.uid,criadoEm:FS.serverTimestamp()});
+    closeModal('m-pgto'); toast(`✅ Pagamento de ${refLabel} registrado!`,'success');
+  } catch(e){errEl.className='alert-err';errEl.textContent='Erro: '+e.message;show(errEl);}
+}
+
+// ── BÔNUS ──
+const MOTIVOS = {indicacao:'🤝 Indicação',fidelidade:'⭐ Fidelidade',cortesia:'🎁 Cortesia',acordo:'🤝 Acordo',outro:'📌 Outro'};
+
+function openBonus(lid) {
+  const l = leads.find(x=>x.id===lid); if(!l) return;
+  id('b-lead-id').value=lid;
+  const hoje=new Date();
+  id('b-ref').value=`${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}`;
+  id('b-motivo').value=''; id('b-obs').value='';
+  id('b-resumo').innerHTML=`<strong>${esc(l.biz||l.nome)}</strong><br>
+    Mensalidade: <strong>R$ ${fmtN(l.valor||0)}</strong> · Vence dia <strong>${l.vencDia||'—'}</strong>`;
+  hide('m-bonus-err'); openModal('m-bonus');
+}
+
+async function saveBonus() {
+  const lid    = id('b-lead-id').value;
+  const ref    = id('b-ref').value;
+  const motivo = id('b-motivo').value;
+  const obs    = id('b-obs').value.trim();
+  const errEl  = id('m-bonus-err');
+  if (!ref)    { errEl.className='alert-err'; errEl.textContent='⚠️ Selecione o mês.'; show(errEl); return; }
+  if (!motivo) { errEl.className='alert-err'; errEl.textContent='⚠️ Selecione o motivo.'; show(errEl); return; }
+  // verifica se já tem registro neste mês
+  const jaExiste = pgtos.find(p=>p.leadId===lid&&p.ref===ref);
+  if (jaExiste) { errEl.className='alert-err'; errEl.textContent='⚠️ Já existe um registro (pagamento ou bônus) para este mês.'; show(errEl); return; }
+  const [y,m] = ref.split('-');
+  const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const refLabel = `${meses[parseInt(m)-1]}/${y}`;
+  try {
+    await db.collection('pagamentos').add({
+      leadId:lid, valor:0, bonus:true, motivo, obs,
+      ref, refLabel, uid:me.uid, criadoEm:FS.serverTimestamp()
+    });
+    closeModal('m-bonus');
+    toast(`🎁 Bônus de ${refLabel} concedido!`, 'success');
+  } catch(e) { errEl.className='alert-err'; errEl.textContent='Erro: '+e.message; show(errEl); }
+}
+
+// ── EXCLUIR PAGAMENTO ──
+async function deletarPgto(pid) {
+  if (!confirm('Excluir este pagamento?')) return;
+  try {
+    await db.collection('pagamentos').doc(pid).delete();
+    toast('🗑 Pagamento excluído.', 'success');
+  } catch(e) { toast('Erro: ' + e.message, 'error'); }
+}
+
+// ── MENSAGEM DE FATURA VIA WHATSAPP ──
+function montarMsgFatura(l) {
+  const hoje = new Date();
+  const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const mesRef = `${meses[hoje.getMonth()]}/${hoje.getFullYear()}`;
+  return `Olá, ${l.nome}! 👋\n\nSegue a cobrança da mensalidade do PetOffice referente a *${mesRef}*.\n\n` +
+    `🐾 *${l.biz}*\n` +
+    `💰 Valor: *R$ ${fmtN(l.valor||0)}*\n` +
+    `📅 Vencimento: dia *${l.vencDia||'—'}*\n\n` +
+    `🔵 *PIX — Chave:* 11989443902\n` +
+    `_(WhatsApp / Celular)_\n\n` +
+    `Após o pagamento, por favor envie o comprovante por aqui. 🙏\n\nObrigado!`;
+}
+
+// ── DELETE LEAD ──
+function openDel(lid) {
+  const l=leads.find(x=>x.id===lid); if(!l) return;
+  id('del-id').value=lid; id('del-nome').textContent=l.biz||l.nome; openModal('m-del');
+}
+async function confirmDelete() {
+  const lid=id('del-id').value;
+  try {
+    const hist=await db.collection('leads').doc(lid).collection('historico').get();
+    const batch=db.batch();
+    hist.forEach(d=>batch.delete(d.ref));
+    batch.delete(db.collection('leads').doc(lid));
+    await batch.commit();
+    closeModal('m-del'); toast('🗑 Lead removido.','success');
+  } catch(e){toast('Erro: '+e.message,'error');}
+}
+
+// ── HELPERS ──
+function setFiltro(f){filtro=f;render();}
+function debounceBusca(v){clearTimeout(busTimer);busTimer=setTimeout(()=>{busca=v;render();},220);}
+function openModal(mid){document.getElementById(mid).classList.add('open');}
+function closeModal(mid){document.getElementById(mid).classList.remove('open');}
+window.addEventListener('click',e=>{if(e.target.classList.contains('moverlay'))e.target.classList.remove('open');});
+function id(x){return document.getElementById(x);}
+function show(x){(typeof x==='string'?id(x):x).classList.remove('hidden');}
+function hide(x){(typeof x==='string'?id(x):x).classList.add('hidden');}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');}
+function fmtN(v){return (parseFloat(v)||0).toFixed(2).replace('.',',');}
+function fmtDateBR(s){if(!s)return'—';const[y,m,d]=s.split('-');return`${d}/${m}/${y}`;}
+function toast(msg,type=''){const t=id('toast');t.textContent=msg;t.className=`toast ${type} show`;setTimeout(()=>t.className='toast',3200);}
+</script>
+</body>
+</html>
